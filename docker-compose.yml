@@ -1,72 +1,47 @@
-version: '3'
+version: '3.8'
 
 services:
-    nginx:
+    django:
         restart: always
-        image: nginx:1.23-alpine
+        build: .
+        # сборка находится в том-же катклоге
+        container_name: django
+        command: python manage.py runserver 0.0.0.0:8000
+        volumes:
+            - .:/docker_app
         ports:
-            - 80:80
-        volumes:
-            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
-            - static_volume:/app/top/django_static
-    server:
-        restart: unless-stopped
-        build:
-            context: .
-            dockerfile: ./docker/top/Dockerfile
-        entrypoint: /app/docker/top/server-entrypoint.sh
-        volumes:
-            - static_volume:/app/top/django_static
-        expose:
-            - 8000
+            - "8000:8000"
         environment:
-            DEBUG: "True"
-            CELERY_BROKER_URL: "redis://redis:6379/0"
-            CELERY_RESULT_BACKEND: "redis://redis:6379/0"
-            DJANGO_DB: postgresql
-            POSTGRES_HOST: db
-            POSTGRES_NAME: postgres
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_PORT: 5432
-    worker:
-        restart: unless-stopped
-        build:
-            context: .
-            dockerfile: ./docker/top/Dockerfile
-        entrypoint: /app/docker/top/worker-entrypoint.sh
-        volumes:
-            - static_volume:/app/top/django_static
-        environment:
-            DEBUG: "True"
-            CELERY_BROKER_URL: "redis://redis:6379/0"
-            CELERY_RESULT_BACKEND: "redis://redis:6379/0"
-            DJANGO_DB: postgresql
-            POSTGRES_HOST: db
-            POSTGRES_NAME: postgres
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_PORT: 5432
+            - DEBUG=1
+            - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+            - CELERY_BROKER=redis://redis:6379/0
+            - CELERY_BACKEND=redis://redis:6379/0
         depends_on:
-            - server
+#            - pgdb
             - redis
-    redis:
-        restart: unless-stopped
-        image: redis:7.0.5-alpine
-        expose:
-            - 6379
-    db:
-        image: postgres:13.0-alpine
-        restart: unless-stopped
+    celery:
+        restart: always
+        build: .
+        command: celery -A core worker -E -l INFO
         volumes:
-            - postgres_data:/var/lib/postgresql/data/
-        environment:
-            POSTGRES_DB: postgres
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
-        expose:
-            - 5432
+            - .:/docker_app
+        depends_on:
+            - django
+            - redis
+#    pgdb:
+#        restart: always
+#        image: postgres
+#        container_name: pgdb
+#        environment:
+#            - POSTGRES_DB=postgres
+#            - POSTGRES_USER=postgres
+#            - POSTGRES_PASSWORD=postgres
+#        volumes:
+#            - pgdata:/var/lib/postgresql/data/
+    redis:
+        image: 'redis:alpine'
 
 volumes:
-    static_volume: {}
-    postgres_data: {}
+    pgdata:
+
+

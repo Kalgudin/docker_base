@@ -1,9 +1,4 @@
-django
-
-djangorestframework
-markdown
-django-filter
-
-celery[redis]
-
+Django
 psycopg2-binary
+celery
+redis
